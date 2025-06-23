@@ -1,0 +1,32 @@
+# ==================================
+# Python / Django
+# ==================================
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Django local database
+db.sqlite3
+*.sqlite3
+
+# Log files
+*.log
+
+# User-uploaded files
+/uploads/
+
+# IDE/Editor specific
+.idea/
+.vscode/
+
+# Environment variables
+.env
+.env*
+
+# macOS
+.DS_Store
+*.pem
+
