@@ -28,7 +28,7 @@ This is a Django-based backend server designed to support a music generation app
 
 4.  **Apply database migrations:**
     ```bash
-    python manage.py migrate
+    python3 manage.py migrate
     ```
 
 ## Configuration
@@ -86,7 +86,7 @@ For the backend to work correctly with the frontend, ensure you have the followi
 
 -   Start the development server with the following command:
     ```bash
-    python manage.py runserver 8000
+    python3 manage.py runserver 8000
     ```
 -   The API will be available at `http://localhost:8000`.
 
