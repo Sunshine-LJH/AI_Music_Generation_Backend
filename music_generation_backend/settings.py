@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+import sys
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 # 根目录
@@ -26,7 +27,7 @@ SECRET_KEY = 'django-insecure-pf6-!)qiwtat6$isn!0!214#7q+eesz@vk9b#9e-d!+jtz6^gn
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 # Application definition
 
@@ -71,6 +72,7 @@ TEMPLATES = [
     },
 ]
 
+ASGI_APPLICATION = 'music_generation_backend.asgi.application'
 WSGI_APPLICATION = 'music_generation_backend.wsgi.application'
 
 # Database
@@ -123,21 +125,34 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # 允许你的前端 (http://localhost:8081) 访问后端
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:8081",
-]
+# CORS_ALLOWED_ORIGINS = [
+#     "http://localhost:8081",
+# ]
 
 # 如果需要，可以允许所有来源（仅限开发环境）
 CORS_ALLOW_ALL_ORIGINS = True
 
 # 当 withCredentials 为 true 时，必须将此项设为 True
-CORS_ALLOW_CREDENTIALS = True
+# CORS_ALLOW_CREDENTIALS = True
 
 # CSRF 配置: 告诉 Django，这个源是可信的，可以接收其 POST 请求
-CSRF_TRUSTED_ORIGINS = [
-    'http://localhost:8081',
-]
+# CSRF_TRUSTED_ORIGINS = [
+#     'http://localhost:8081',
+# ]
 
-# 定义媒体文件的根目录和URL
-MEDIA_URL = '/uploads/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'uploads')
+# 上传文件的浏览URL
+UPLOAD_URL = '/uploads/'
+# 上传文件的存储位置
+UPLOAD_ROOT = os.path.join(BASE_DIR, 'uploads')
+
+
+# 媒体文件的浏览URL
+MEDIA_URL = '/media/'
+# 媒体文件的存储位置
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# midi文件上传路径
+MIDI_ROOT = os.path.join(BASE_DIR, 'midi')
+
+PARENT_DIR = BASE_DIR.parent
+sys.path.insert(0, str(PARENT_DIR))

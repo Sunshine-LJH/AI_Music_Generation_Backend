@@ -1,9 +1,10 @@
 # api/urls.py
 from django.urls import path
-from .views import handle_signin, create_music, get_csrf_token
+from .views import handle_signin, upload_and_fetch_music
+
 
 urlpatterns = [
-    path('csrf/', get_csrf_token, name='get-csrf-token'),
+    # path('csrf/', get_csrf_token, name='get-csrf-token'),
     path('signin/', handle_signin, name='signin'),
-    path('create/', create_music, name='create'),
+    path('create/', upload_and_fetch_music, name='create'),
 ]

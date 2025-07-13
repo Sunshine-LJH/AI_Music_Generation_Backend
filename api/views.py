@@ -1,27 +1,17 @@
 from django.http import JsonResponse
+from django.conf import settings
+from django.middleware.csrf import get_token  # get_token 用于登录时设置cookie
+from django.views.decorators.csrf import csrf_exempt
+from .utils import create_music, convert_wav_to_mp3
 import json
 import os
 import uuid
-from django.conf import settings
-from django.middleware.csrf import get_token  # get_token 用于登录时设置cookie
-from django.views.decorators.csrf import ensure_csrf_cookie
+import asyncio
 
-
-@ensure_csrf_cookie
-def get_csrf_token(request):
-    """
-    这个视图用于确保客户端有一个CSRF cookie。
-    @ensure_csrf_cookie 装饰器会处理所有事情。
-    """
-    return JsonResponse({'detail': 'CSRF cookie set'})
-
-
+@csrf_exempt
 def handle_signin(request):
     if request.method == 'POST':
         try:
-            # 首次访问或登录成功时，确保CSRF cookie被设置
-            get_token(request)
-
             data = json.loads(request.body)
             email = data.get('email')
             password = data.get('password')
@@ -39,52 +29,118 @@ def handle_signin(request):
             return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
     return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=405)
 
-
-def create_music(request):
-    '''
-    创建音乐视图，接收前端传的歌曲描述和音频文件
-    需要调用模型生成音乐，并将生成的音乐文件路径(类似http://localhost:8000/media/xxxx-xxxx.mp3)返回给前端
-    '''
+@csrf_exempt
+async def upload_and_fetch_music(request):
     if request.method == 'POST':
         try:
-            # 接收到的歌曲描述
-            description = request.POST.get('description', '')
-            # 接收到的音频文件
-            audio_file = request.FILES.get('audio_file')
+            creation_mode = None
+            model = None
+            description = None
+            audio_file = None
+            midi_file = None
+            sequential = None
+            duration = None
+            song_name = None
+            style = None
+            audio_file_path = None
+            midi_file_path = None
 
-            if audio_file:
-                # 使用 uuid 确保文件名唯一，避免覆盖
-                file_extension = os.path.splitext(audio_file.name)[1]
-                file_name = f"{uuid.uuid4()}{file_extension}"
-                file_path = os.path.join(settings.MEDIA_ROOT, file_name)
+            if request.POST.get('creation_mode'):
+                creation_mode = request.POST.get('creation_mode')
 
-                # 将音频文件写入uploads目录
-                with open(file_path, 'wb+') as dst_file:
+            if request.POST.get('model'):
+                model = request.POST.get('model')
+
+            if request.POST.get('description', ''):
+                description = request.POST.get('description', '')
+
+            if request.FILES.get('audio_file'):
+                audio_file = request.FILES.get('audio_file')
+                audio_file_path = os.path.join(settings.UPLOAD_ROOT, audio_file.name)
+                with open(audio_file_path, 'wb+') as dst_file:
                     for chunk in audio_file.chunks():
                         dst_file.write(chunk)
 
-                print(f"Received Description: {description}")
+            if request.FILES.get('midi_file'):
+                midi_file = request.FILES.get('midi_file')
+                midi_file_path = os.path.join(settings.MIDI_ROOT, midi_file.name)
+                # 将midi文件写入midi目录
+                with open(midi_file_path, 'wb+') as dst_file:
+                    for chunk in audio_file.chunks():
+                        dst_file.write(chunk)
 
-                # 给模型传歌曲描述和用户上传的音频文件，获得模型生成的音频文件(期待完善～)
+            if request.POST.get('sequential'):
+                sequential = request.POST.get('sequential')
 
-                # 返回上传的音频文件 URL
-                # 构建文件的完整可访问 URL 例如: http://localhost:8000/media/xxxx-xxxx.mp3
-                # 这边的settings.MEDIA_URL暂时指向uploads目录，uploads目录保存了前端上传的音频.mp3文件，后续需要改成模型生成的音乐URL
-                # response_data里的name暂时返回上传的原始文件名，后续需要返回模型生成的音乐名称
-                file_url = request.build_absolute_uri(os.path.join(settings.MEDIA_URL, file_name))
-                print("File URL: ", file_url)
+            if request.POST.get('duration'):
+                duration = request.POST.get('duration')
+
+            if request.POST.get('song_name'):
+                song_name = request.POST.get('song_name')
+
+            if request.POST.get('style'):
+                style = request.POST.get('style')
+
+            print("creation_mode",creation_mode)
+            print("model",model)
+            print("description: ", description)
+            print("audio_file: ", audio_file)
+            print("midi_file: ", midi_file)
+            print("sequential: ", sequential)
+            print("duration: ", duration)
+            print("song_name: ", song_name)
+            print("style: ", style)
+            print("audio_file_path: ", audio_file_path)
+            print("midi_file_path: ", midi_file_path)
+
+            loop_create_music = asyncio.get_event_loop()
+            # 模型创建音乐 "final.wav"
+            created_music_file_name = await loop_create_music.run_in_executor(
+                None,  # 使用默认线程池执行器
+                create_music,  # 要运行的同步函数
+                creation_mode,
+                model,
+                style,
+                description,  # 同步函数的一个参数
+                audio_file_path,
+                midi_file_path,
+                sequential,
+                duration,
+                song_name
+            )
+
+            # final
+            prefix_music_file = created_music_file_name[:created_music_file_name.rfind('.')]
+            # final.mp3
+            converted_music_file_name = prefix_music_file + ".mp3"
+            input_wav_path = os.path.join(settings.MEDIA_ROOT, created_music_file_name)
+            # output_mp3_path = BASE_DIR / media / final.mp3
+            output_mp3_path = os.path.join(settings.MEDIA_ROOT, converted_music_file_name)
+
+            loop_convert_wav_to_mp3 = asyncio.get_event_loop()
+            is_convert_success = await loop_convert_wav_to_mp3.run_in_executor(
+                None,
+                convert_wav_to_mp3,
+                input_wav_path,
+                output_mp3_path
+            )
+
+            if is_convert_success:
+                # created_music_file_url为请求的url，类似http://localhost:8000/media/final.mp3
+                convert_music_url = os.path.join(settings.MEDIA_URL, converted_music_file_name)
+
+                convert_absolute_music_url = request.build_absolute_uri(convert_music_url)
+                print("Created music URL: ", convert_absolute_music_url)
                 response_data = {
                     'id': str(uuid.uuid4()),
-                    'name': audio_file.name,  # 后续需要改成模型生成的音乐文件名称
-                    'uri': file_url  # 返回真实的，模型生成的，可播放的文件URL
+                    'name': converted_music_file_name, # 返回给前端展示的音乐名称
+                    'uri': convert_absolute_music_url  # 返回真实的，模型生成的，可播放的文件URL
                 }
+                return JsonResponse(response_data, status=201)
             else:
-                # 如果只有文本，暂时返回一个错误，后续需要像上面一样，返回一个模型生成的音乐URL
-                return JsonResponse({'status': 'error', 'message': 'Error to create a song.'}, status=400)
+                return JsonResponse({'status': 'error', 'message': 'Failed to convert WAV to MP3.'}, status=500)
 
-            return JsonResponse(response_data, status=201)
         except Exception as e:
-            print(f"Error in create_view: {e}")
             return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
 
     return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=405)
